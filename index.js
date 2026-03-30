@@ -18,6 +18,7 @@ const MAX_RECONNECT_DELAY = 300000; // 5 minutes max
 let serverLagging = false; // TPS lag tracker (for Phase 4)
 let globalBot = null; // Used for dashboard
 let hasFullySpawned = false; // Prevents greeting spam on early spawn
+let isLoggedIn = false; // Prevents actions before AuthMe login
 
 function sendWebhook(message) {
     if (!botConfig.webhookUrl) return;
@@ -109,9 +110,7 @@ function createBot() {
         }
 
         setTimeout(() => { hasFullySpawned = true; }, 10000); // 10s warmup before greeting players
-
-        startAntiAFK(bot);
-        startSurvivalMonitor(bot);
+        // AntiAFK and Survival Monitor will start AFTER login, not immediately upon spawn.
     });
 
     // TPS Lag Monitor
@@ -182,34 +181,38 @@ function createBot() {
         if (lowerMsg.includes('/register')) {
             console.log(`[BOT] AuthMe requested registration. Attempting to register...`);
             bot.chat(`/register ${botConfig.authmePassword} ${botConfig.authmePassword}`);
+            isLoggedIn = true;
+            startPostLoginRoutines(bot);
         }
         
         // Handle Authme Login
         if (lowerMsg.includes('/login')) {
             console.log(`[BOT] AuthMe requested login. Attempting to login...`);
             bot.chat(`/login ${botConfig.authmePassword}`);
-
-            setTimeout(() => {
-                console.log(`[BOT] Enabling God Mode and initiating stealth isolation...`);
-                bot.chat('/god');
-                bot.chat('/gamemode creative');
-                bot.chat('/heal');
-                bot.chat('/feed');
-                
-                // Teleport high above spawn to stay hidden without loading extreme chunks
-                const safeX = 0;
-                const safeY = 300;
-                const safeZ = 0;
-                bot.chat(`/tp ${bot.username} ${safeX} ${safeY} ${safeZ}`);
-                
-                // Build an invisible barrier platform to stand on safely
-                setTimeout(() => {
-                    bot.chat(`/fill ~-2 ~-1 ~-2 ~2 ~-1 ~2 barrier`);
-                }, 1500);
-
-            }, 3000);
+            isLoggedIn = true;
+            startPostLoginRoutines(bot);
         }
     });
+
+    function startPostLoginRoutines(bot) {
+        startAntiAFK(bot);
+        startSurvivalMonitor(bot);
+        
+        setTimeout(() => {
+            console.log(`[BOT] Enabling God Mode and initiating stealth isolation...`);
+            bot.chat('/god');
+            bot.chat('/gamemode creative');
+            bot.chat('/heal');
+            bot.chat('/feed');
+            
+            // Build an invisible barrier platform absolute coordinates to prevent falling
+            bot.chat(`/execute in minecraft:overworld run fill -2 299 -2 2 299 2 barrier`);
+            
+            // Teleport high above spawn to stay hidden
+            bot.chat(`/execute in minecraft:overworld run tp ${bot.username} 0 300 0`);
+
+        }, 3000);
+    }
 
     // Handle Death
     bot.on('death', () => {
@@ -220,6 +223,7 @@ function createBot() {
     // Intelligent Health / God Mode monitor
     // If Steve ever drops below full health, he will intelligently re-enable OP protections
     bot.on('health', () => {
+        if (!isLoggedIn) return; // Ignore damage before AuthMe login
         if (bot.health < 20) {
             console.log(`[BOT] Taking damage! Health at ${bot.health}. Re-asserting God Mode...`);
             bot.chat('/god');
@@ -254,6 +258,7 @@ function createBot() {
         
         let reasonStr = String(reason).toLowerCase() + ' ' + lastKickReason;
         let delay = 10000; // Base 10s
+        isLoggedIn = false; // Reset login state
 
         // Server Restart / Kick Detection
         if (reasonStr.includes('restart') || reasonStr.includes('queue') || reasonStr.includes('already playing')) {
@@ -358,12 +363,10 @@ function startSurvivalMonitor(bot) {
                 const currentDim = typeof bot.game.dimension === 'string' ? bot.game.dimension : String(bot.game.dimension);
                 if (currentDim.includes('nether') || currentDim.includes('end')) {
                     console.log(`[BOT] Portal dimension detected (${currentDim}). Teleporting to safe sky platform...`);
-                    // Try teleporting directly with execute command to force overworld safety (if server supports it)
+                    // Build barrier platform first
+                    bot.chat(`/execute in minecraft:overworld run fill -2 299 -2 2 299 2 barrier`);
+                    // Try teleporting directly with execute command to force overworld safety
                     bot.chat(`/execute in minecraft:overworld run tp ${bot.username} 0 300 0`);
-                    // Wait briefly, then re-fill the secure platform
-                    setTimeout(() => {
-                        bot.chat(`/fill ~-2 ~-1 ~-2 ~2 ~-1 ~2 barrier`);
-                    }, 2000);
                 }
             }
         } catch (e) { }
