@@ -3,78 +3,124 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Steve Bot Dashboard</title>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&display=swap" rel="stylesheet">
+    <title>Steve Admin Interface | 24/7 Node</title>
+    <link href="https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;600&family=Inter:wght@400;600;800&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="style.css">
+    <script src="/socket.io/socket.io.js"></script>
 </head>
 <body>
     <div class="background-anim"></div>
+    <div class="cyber-overlay"></div>
+    
     <div class="container">
-        <header class="glass-panel">
+        <header class="glass-panel cyber-header">
             <div class="header-content">
                 <div class="bot-info">
-                    <img src="https://minotar.net/helm/Steve/100.png" alt="Steve" class="avatar" id="bot-avatar">
+                    <div class="avatar-ring">
+                        <img src="https://minotar.net/helm/Steve/100.png" alt="Steve" class="avatar" id="bot-avatar">
+                    </div>
                     <div class="bot-text">
-                        <h1 id="bot-name">Steve Bot</h1>
+                        <h1 id="bot-name">STEVE_ROOT</h1>
                         <div class="status-badge" id="status-badge">
                             <span class="status-dot"></span>
-                            <span id="status-text">Connecting...</span>
+                            <span id="status-text">INITIATING SECURE CONNECTION...</span>
                         </div>
                     </div>
+                </div>
+                
+                <div class="ping-display">
+                    <span class="ping-label">UPLINK PING</span>
+                    <span class="ping-value" id="ping-value">-- ms</span>
                 </div>
             </div>
         </header>
 
         <main class="grid-layout">
-            <div class="glass-panel card">
-                <h2>Vitals</h2>
-                <div class="vitals-grid">
-                    <div class="vital-item">
-                        <span class="vital-label">❤️ Health</span>
-                        <div class="progress-bar health-bar">
-                            <div class="progress-fill" id="health-fill" style="width: 100%;"></div>
-                        </div>
-                        <span class="vital-value" id="health-value">20 / 20</span>
+            <div class="left-column">
+                <div class="glass-panel card cyber-card">
+                    <div class="card-header">
+                        <span class="icon">⚕️</span>
+                        <h2>SYSTEM VITALS</h2>
                     </div>
-                    <div class="vital-item">
-                        <span class="vital-label">🍖 Food</span>
-                        <div class="progress-bar food-bar">
-                            <div class="progress-fill" id="food-fill" style="width: 100%;"></div>
+                    <div class="vitals-grid">
+                        <div class="vital-item">
+                            <div class="vital-header">
+                                <span class="vital-label">HP INTEGRITY</span>
+                                <span class="vital-value" id="health-value">-- / 20</span>
+                            </div>
+                            <div class="progress-bar health-bar">
+                                <div class="progress-fill" id="health-fill" style="width: 0%;"></div>
+                            </div>
                         </div>
-                        <span class="vital-value" id="food-value">20 / 20</span>
+                        <div class="vital-item">
+                            <div class="vital-header">
+                                <span class="vital-label">NUTRITION</span>
+                                <span class="vital-value" id="food-value">-- / 20</span>
+                            </div>
+                            <div class="progress-bar food-bar">
+                                <div class="progress-fill" id="food-fill" style="width: 0%;"></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="glass-panel card cyber-card">
+                    <div class="card-header">
+                        <span class="icon">📍</span>
+                        <h2>TELEMETRY</h2>
+                    </div>
+                    <div class="stat-row">
+                        <span class="stat-label">DIMENSION</span>
+                        <span class="stat-value highlight-blue" id="dim-value">AWAITING...</span>
+                    </div>
+                    <div class="stat-row">
+                        <span class="stat-label">COORDS [X,Y,Z]</span>
+                        <span class="stat-value" id="pos-value">0, 0, 0</span>
+                    </div>
+                    <div class="stat-row">
+                        <span class="stat-label">TPS STATUS</span>
+                        <span class="stat-value" id="lag-value">AWAITING...</span>
+                    </div>
+                </div>
+
+                <div class="glass-panel card inventory-card cyber-card">
+                    <div class="card-header">
+                        <span class="icon">📦</span>
+                        <h2>PAYLOAD (INVENTORY)</h2>
+                    </div>
+                    <div class="inventory-grid" id="inventory-grid">
+                        <div class="loading-text">SYNCING PAYLOAD...</div>
                     </div>
                 </div>
             </div>
 
-            <div class="glass-panel card">
-                <h2>Location</h2>
-                <div class="stat-row">
-                    <span class="stat-label">🗺️ Dimension</span>
-                    <span class="stat-value" id="dim-value">Loading...</span>
+            <div class="right-column">
+                <div class="glass-panel card terminal-card">
+                    <div class="terminal-header">
+                        <span class="icon">💬</span>
+                        <h2>INTERCEPTED COMM (CHAT)</h2>
+                    </div>
+                    <div class="terminal-body chat-body" id="chat-container">
+                        <!-- Chat lines go here -->
+                    </div>
                 </div>
-                <div class="stat-row">
-                    <span class="stat-label">📍 X / Y / Z</span>
-                    <span class="stat-value" id="pos-value">0 / 0 / 0</span>
-                </div>
-                <div class="stat-row">
-                    <span class="stat-label">⚡ Server Lag</span>
-                    <span class="stat-value" id="lag-value">Checking...</span>
-                </div>
-            </div>
-
-            <div class="glass-panel card inventory-card">
-                <h2>Inventory</h2>
-                <div class="inventory-grid" id="inventory-grid">
-                    <div class="loading-text">Loading inventory...</div>
+                
+                <div class="glass-panel card terminal-card log-card">
+                    <div class="terminal-header">
+                        <span class="icon">⚙️</span>
+                        <h2>LIVE CONSOLE KERNEL</h2>
+                    </div>
+                    <div class="terminal-body log-body" id="log-container">
+                        <!-- Log lines go here -->
+                    </div>
                 </div>
             </div>
         </main>
         
-        <footer>
-            <p>24/7 Render Persistence Enabled • Anti-AFK Active</p>
+        <footer class="cyber-footer">
+            <p>ACCESS LEVEL: OMNISCIENT • RUNTIME: STABLE • IMMUNITY: OVERRIDE_ACTIVE</p>
         </footer>
     </div>
-
     <script src="script.js"></script>
 </body>
 </html>

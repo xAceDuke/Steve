@@ -1,6 +1,11 @@
+const socket = io();
+
+// DOM Elements
 const statusBadge = document.getElementById('status-badge');
 const statusText = document.getElementById('status-text');
 const botName = document.getElementById('bot-name');
+const pingValue = document.getElementById('ping-value');
+
 const healthFill = document.getElementById('health-fill');
 const healthValue = document.getElementById('health-value');
 const foodFill = document.getElementById('food-fill');
@@ -8,69 +13,119 @@ const foodValue = document.getElementById('food-value');
 const dimValue = document.getElementById('dim-value');
 const posValue = document.getElementById('pos-value');
 const lagValue = document.getElementById('lag-value');
+
 const inventoryGrid = document.getElementById('inventory-grid');
-const botAvatar = document.getElementById('bot-avatar');
+const logContainer = document.getElementById('log-container');
+const chatContainer = document.getElementById('chat-container');
 
-function updateStatusUI(online) {
-    if (online) {
+// Socket Events
+socket.on('connect', () => {
+    // Initial inventory fetch
+    fetchInventory();
+});
+
+socket.on('bot_status', (data) => {
+    if (data.online) {
         statusBadge.className = 'status-badge online';
-        statusText.textContent = 'Online';
-    } else {
-        statusBadge.className = 'status-badge offline';
-        statusText.textContent = 'Offline';
+        statusText.textContent = 'SECURE UPLINK ESTABLISHED';
         
-        // Reset values when offline
-        healthFill.style.width = '0%';
-        healthValue.textContent = '0 / 20';
-        foodFill.style.width = '0%';
-        foodValue.textContent = '0 / 20';
-        dimValue.textContent = 'Unknown';
-        posValue.textContent = '0 / 0 / 0';
-        lagValue.textContent = 'N/A';
-        inventoryGrid.innerHTML = '<div class="loading-text">Bot offline.</div>';
-    }
-}
+        botName.textContent = data.username.toUpperCase() + '_ROOT';
 
-async function fetchStatus() {
-    try {
-        const res = await fetch('/api/status');
-        const data = await res.json();
+        healthFill.style.width = `${(data.health / 20) * 100}%`;
+        healthValue.textContent = `${Math.round(data.health)} / 20`;
 
-        updateStatusUI(data.online);
+        foodFill.style.width = `${(data.food / 20) * 100}%`;
+        foodValue.textContent = `${Math.round(data.food)} / 20`;
 
-        if (data.online) {
-            botName.textContent = data.username + ' Bot';
-            botAvatar.src = `https://minotar.net/helm/${data.username}/100.png`;
-
-            healthFill.style.width = `${(data.health / 20) * 100}%`;
-            healthValue.textContent = `${data.health} / 20`;
-
-            foodFill.style.width = `${(data.food / 20) * 100}%`;
-            foodValue.textContent = `${data.food} / 20`;
-
-            dimValue.textContent = data.dimension.replace('minecraft:', '').replace('_', ' ').toUpperCase();
+        dimValue.textContent = typeof data.dimension === 'string' 
+            ? data.dimension.replace('minecraft:', '').toUpperCase() 
+            : 'AWAITING...';
             
-            posValue.textContent = `${data.position.x} / ${data.position.y} / ${data.position.z}`;
+        posValue.textContent = `${data.position.x}, ${data.position.y}, ${data.position.z}`;
 
-            if (data.lagging) {
-                lagValue.innerHTML = '<span style="color: var(--accent-red);">Lagging ⚠️</span>';
-            } else {
-                lagValue.innerHTML = '<span style="color: var(--accent-green);">Optimal ✅</span>';
-            }
-        }
-    } catch (e) {
-        console.error('Failed to fetch status', e);
-        updateStatusUI(false);
+        lagValue.innerHTML = data.lagging 
+            ? '<span style="color: var(--danger);">WARNING: DEGRADED</span>' 
+            : '<span style="color: var(--accent);">OPTIMAL</span>';
+            
+        pingValue.textContent = data.ping !== undefined ? data.ping + ' ms' : '-- ms';
+    } else {
+        statusBadge.className = 'status-badge';
+        statusText.textContent = 'UPLINK SEVERED. RECONNECTING...';
+        pingValue.textContent = '-- ms';
+        healthFill.style.width = '0%';
+        foodFill.style.width = '0%';
     }
+});
+
+socket.on('log', (data) => {
+    const isScrolledToBottom = logContainer.scrollHeight - logContainer.clientHeight <= logContainer.scrollTop + 10;
+    
+    const div = document.createElement('div');
+    div.className = 'log-line';
+    
+    // basic color coding
+    if (data.message.toLowerCase().includes('error') || data.message.toLowerCase().includes('died')) {
+        div.classList.add('error');
+    } else if (data.message.toLowerCase().includes('warning') || data.message.toLowerCase().includes('lag')) {
+        div.classList.add('warn');
+    }
+    
+    // Add time
+    const timeString = new Date(data.timestamp).toLocaleTimeString();
+    
+    div.innerHTML = `<span class="timestamp">[${timeString}]</span> <span class="msg">${escapeHtml(data.message)}</span>`;
+    
+    logContainer.appendChild(div);
+    
+    // Limit to 200 logs
+    while (logContainer.children.length > 200) {
+        logContainer.removeChild(logContainer.firstChild);
+    }
+    
+    if (isScrolledToBottom) {
+        logContainer.scrollTop = logContainer.scrollHeight;
+    }
+});
+
+socket.on('chat', (data) => {
+    const isScrolledToBottom = chatContainer.scrollHeight - chatContainer.clientHeight <= chatContainer.scrollTop + 10;
+    
+    const div = document.createElement('div');
+    div.className = 'chat-line';
+    
+    const timeString = new Date(data.timestamp).toLocaleTimeString();
+    
+    div.innerHTML = `<span class="timestamp">[${timeString}]</span> <span class="msg">${escapeHtml(data.message)}</span>`;
+    
+    chatContainer.appendChild(div);
+    
+    while (chatContainer.children.length > 100) {
+        chatContainer.removeChild(chatContainer.firstChild);
+    }
+    
+    if (isScrolledToBottom) {
+        chatContainer.scrollTop = chatContainer.scrollHeight;
+    }
+});
+
+// Helper
+function escapeHtml(unsafe) {
+    return unsafe
+         .replace(/&/g, "&amp;")
+         .replace(/</g, "&lt;")
+         .replace(/>/g, "&gt;")
+         .replace(/"/g, "&quot;")
+         .replace(/'/g, "&#039;");
 }
 
+// Inventory Polling
 async function fetchInventory() {
     try {
         const res = await fetch('/api/inventory');
         const data = await res.json();
 
         if (data.items.length === 0) {
-            inventoryGrid.innerHTML = '<div class="loading-text">Inventory is empty.</div>';
+            inventoryGrid.innerHTML = '<div class="loading-text">PAYLOAD EMPTY.</div>';
             return;
         }
 
@@ -79,27 +134,19 @@ async function fetchInventory() {
             const div = document.createElement('div');
             div.className = 'inv-item';
             
-            const cleanName = item.displayName || item.name.replace(/_/g, ' ');
+            const cleanName = item.displayName || item.name.replace(/_/g, ' ').toUpperCase();
 
             div.innerHTML = `
-                <span class="inv-name">${cleanName}</span>
-                <span class="inv-count">x${item.count}</span>
+                <div style="font-size: 0.65rem; padding-bottom: 4px;">${cleanName}</div>
+                <div class="inv-count">x${item.count}</div>
             `;
             inventoryGrid.appendChild(div);
         });
 
     } catch (e) {
-        console.error('Failed to fetch inventory', e);
+        console.error('Fetch inventory err:', e);
     }
 }
 
-function pollData() {
-    fetchStatus();
-    fetchInventory();
-}
-
-// Initial fetch
-pollData();
-
-// Poll every 2 seconds
-setInterval(pollData, 2000);
+// Poll inventory every 5 seconds since it's not strictly realtime needed as much
+setInterval(fetchInventory, 5000);

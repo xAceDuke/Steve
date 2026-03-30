@@ -2,6 +2,8 @@ const mineflayer = require('mineflayer');
 const { pathfinder, Movements, goals } = require('mineflayer-pathfinder');
 const axios = require('axios');
 const express = require('express');
+const http = require('http');
+const { Server } = require('socket.io');
 
 const botConfig = {
     host: '51.79.228.175',
@@ -16,7 +18,7 @@ let reconnectAttempts = 0;
 const MAX_RECONNECT_DELAY = 300000; // 5 minutes max
 let serverLagging = false; // TPS lag tracker (for Phase 4)
 let globalBot = null; // Used for dashboard
-let hasFullySpawned = false; // Prevents greeting spam on early spawn
+let initialPlayers = new Set(); // Tracks players who were online before Steve
 let isLoggedIn = false; // Prevents actions before AuthMe login
 
 function sendWebhook(message) {
@@ -29,8 +31,18 @@ function sendWebhook(message) {
 // ---------------------------
 const app = express();
 const port = process.env.PORT || 3000;
+const server = http.createServer(app);
+const io = new Server(server);
 
 app.use(express.static('public'));
+
+// Setup console capture to emit logs via WebSockets
+const originalConsoleLog = console.log;
+console.log = function (...args) {
+    const msg = args.join(' ');
+    io.emit('log', { timestamp: new Date().toISOString(), message: msg });
+    originalConsoleLog.apply(console, args);
+};
 
 app.get('/api/status', (req, res) => {
     if (globalBot && globalBot.entity) {
@@ -69,9 +81,31 @@ app.get('/ping', (req, res) => {
     res.status(200).send('pong');
 });
 
-app.listen(port, () => {
+server.listen(port, () => {
     console.log(`[WEB] Remote dashboard running at port ${port}`);
 });
+
+// Periodic state broadcast via Socket.IO
+setInterval(() => {
+    if (globalBot && globalBot.entity) {
+        io.emit('bot_status', {
+            online: true,
+            username: globalBot.username,
+            health: Math.round(globalBot.health),
+            food: Math.round(globalBot.food),
+            dimension: globalBot.game ? globalBot.game.dimension : 'Loading...',
+            lagging: serverLagging,
+            ping: globalBot.player && globalBot.player.ping !== undefined ? globalBot.player.ping : 0,
+            position: {
+                x: Math.round(globalBot.entity.position.x),
+                y: Math.round(globalBot.entity.position.y),
+                z: Math.round(globalBot.entity.position.z),
+            }
+        });
+    } else {
+        io.emit('bot_status', { online: false, reconnecting: true });
+    }
+}, 1000);
 
 // Self-ping to keep Render awake if KEEPALIVE_URL is provided
 const KEEPALIVE_URL = process.env.RENDER_EXTERNAL_URL || `http://localhost:${port}`;
@@ -105,6 +139,9 @@ function createBot() {
         sendWebhook(`✅ **${bot.username}** has spawned in the server \`${botConfig.host}:${botConfig.port}\`.`);
         reconnectAttempts = 0; // Reset backoff on successful connection
         
+        // Populate the Set of players already on the server when Steve spawns
+        initialPlayers = new Set(Object.keys(bot.players));
+
         if (bot.autoEat) {
             bot.autoEat.options = {
                 priority: 'foodPoints',
@@ -112,9 +149,14 @@ function createBot() {
                 bannedFood: ['rotten_flesh', 'pufferfish', 'spider_eye', 'poisonous_potato']
             };
         }
+    });
 
-        setTimeout(() => { hasFullySpawned = true; }, 10000); // 10s warmup before greeting players
-        // AntiAFK and Survival Monitor will start AFTER login, not immediately upon spawn.
+    // Listen to ALL chat messages and emit to WebSocket
+    bot.on('message', (jsonMsg, position) => {
+        const message = jsonMsg.toString();
+        if (message.trim().length > 0) {
+            io.emit('chat', { timestamp: new Date().toISOString(), message: message });
+        }
     });
 
     // TPS Lag Monitor
@@ -140,7 +182,8 @@ function createBot() {
 
     // Intelligent Welcomes & Goodbyes
     bot.on('playerJoined', (player) => {
-        if (!hasFullySpawned || player.username === bot.username) return;
+        if (player.username === bot.username) return;
+        if (initialPlayers.has(player.username)) return; // Ignore players who were here before Steve
         
         const welcomes = [
             `Welcome to the server, ${player.username}!`,
@@ -158,8 +201,14 @@ function createBot() {
     });
 
     bot.on('playerLeft', (player) => {
-        if (!hasFullySpawned || player.username === bot.username) return;
+        if (player.username === bot.username) return;
         
+        if (initialPlayers.has(player.username)) {
+            // Player was here before Steve, so we don't say goodbye, just remove them from tracking
+            initialPlayers.delete(player.username);
+            return;
+        }
+
         const goodbyes = [
             `See ya, ${player.username}!`,
             `Goodbye ${player.username} 👋`,
@@ -209,6 +258,9 @@ function createBot() {
             bot.chat('/heal');
             bot.chat('/feed');
             
+            // Ensure Steve does not block multiplayer sleeping
+            bot.chat('/gamerule playersSleepingPercentage 0');
+
             // Build an invisible barrier platform absolute coordinates to prevent falling
             bot.chat(`/execute in minecraft:overworld run fill -2 299 -2 2 299 2 barrier`);
             

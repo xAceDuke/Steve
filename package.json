@@ -15,6 +15,7 @@
     "express": "^5.2.1",
     "mineflayer": "^4.36.0",
     "mineflayer-auto-eat": "^5.0.3",
-    "mineflayer-pathfinder": "^2.4.5"
+    "mineflayer-pathfinder": "^2.4.5",
+    "socket.io": "^4.8.3"
   }
 }
