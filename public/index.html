@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Steve Bot Dashboard</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="background-anim"></div>
+    <div class="container">
+        <header class="glass-panel">
+            <div class="header-content">
+                <div class="bot-info">
+                    <img src="https://minotar.net/helm/Steve/100.png" alt="Steve" class="avatar" id="bot-avatar">
+                    <div class="bot-text">
+                        <h1 id="bot-name">Steve Bot</h1>
+                        <div class="status-badge" id="status-badge">
+                            <span class="status-dot"></span>
+                            <span id="status-text">Connecting...</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </header>
+
+        <main class="grid-layout">
+            <div class="glass-panel card">
+                <h2>Vitals</h2>
+                <div class="vitals-grid">
+                    <div class="vital-item">
+                        <span class="vital-label">❤️ Health</span>
+                        <div class="progress-bar health-bar">
+                            <div class="progress-fill" id="health-fill" style="width: 100%;"></div>
+                        </div>
+                        <span class="vital-value" id="health-value">20 / 20</span>
+                    </div>
+                    <div class="vital-item">
+                        <span class="vital-label">🍖 Food</span>
+                        <div class="progress-bar food-bar">
+                            <div class="progress-fill" id="food-fill" style="width: 100%;"></div>
+                        </div>
+                        <span class="vital-value" id="food-value">20 / 20</span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="glass-panel card">
+                <h2>Location</h2>
+                <div class="stat-row">
+                    <span class="stat-label">🗺️ Dimension</span>
+                    <span class="stat-value" id="dim-value">Loading...</span>
+                </div>
+                <div class="stat-row">
+                    <span class="stat-label">📍 X / Y / Z</span>
+                    <span class="stat-value" id="pos-value">0 / 0 / 0</span>
+                </div>
+                <div class="stat-row">
+                    <span class="stat-label">⚡ Server Lag</span>
+                    <span class="stat-value" id="lag-value">Checking...</span>
+                </div>
+            </div>
+
+            <div class="glass-panel card inventory-card">
+                <h2>Inventory</h2>
+                <div class="inventory-grid" id="inventory-grid">
+                    <div class="loading-text">Loading inventory...</div>
+                </div>
+            </div>
+        </main>
+        
+        <footer>
+            <p>24/7 Render Persistence Enabled • Anti-AFK Active</p>
+        </footer>
+    </div>
+
+    <script src="script.js"></script>
+</body>
+</html>

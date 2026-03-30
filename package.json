@@ -1,0 +1,20 @@
+{
+  "name": "mc-bot",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "dependencies": {
+    "axios": "^1.14.0",
+    "express": "^5.2.1",
+    "mineflayer": "^4.36.0",
+    "mineflayer-auto-eat": "^5.0.3",
+    "mineflayer-pathfinder": "^2.4.5"
+  }
+}
