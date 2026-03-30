@@ -1,5 +1,4 @@
 const mineflayer = require('mineflayer');
-const autoeat = require('mineflayer-auto-eat').loader;
 const { pathfinder, Movements, goals } = require('mineflayer-pathfinder');
 const axios = require('axios');
 const express = require('express');
@@ -93,7 +92,12 @@ function createBot() {
     
     globalBot = bot;
 
-    bot.loadPlugin(autoeat);
+    import('mineflayer-auto-eat').then((autoeatModule) => {
+        const loader = autoeatModule.loader || (autoeatModule.default && autoeatModule.default.loader) || autoeatModule.plugin;
+        bot.loadPlugin(loader);
+    }).catch(err => {
+        console.error('[BOT] Failed to load mineflayer-auto-eat plugin:', err);
+    });
     bot.loadPlugin(pathfinder);
 
     bot.once('spawn', () => {
