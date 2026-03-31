@@ -18,6 +18,12 @@ const inventoryGrid = document.getElementById('inventory-grid');
 const logContainer = document.getElementById('log-container');
 const chatContainer = document.getElementById('chat-container');
 
+// New Interactive Controls
+const btnConnect = document.getElementById('btn-connect');
+const btnDisconnect = document.getElementById('btn-disconnect');
+const chatInput = document.getElementById('chat-input');
+const chatSubmit = document.getElementById('chat-submit');
+
 // Socket Events
 socket.on('connect', () => {
     // Initial inventory fetch
@@ -57,54 +63,86 @@ socket.on('bot_status', (data) => {
     }
 });
 
-socket.on('log', (data) => {
+function appendLog(data) {
     const isScrolledToBottom = logContainer.scrollHeight - logContainer.clientHeight <= logContainer.scrollTop + 10;
     
     const div = document.createElement('div');
     div.className = 'log-line';
     
-    // basic color coding
     if (data.message.toLowerCase().includes('error') || data.message.toLowerCase().includes('died')) {
         div.classList.add('error');
     } else if (data.message.toLowerCase().includes('warning') || data.message.toLowerCase().includes('lag')) {
         div.classList.add('warn');
     }
     
-    // Add time
     const timeString = new Date(data.timestamp).toLocaleTimeString();
-    
     div.innerHTML = `<span class="timestamp">[${timeString}]</span> <span class="msg">${escapeHtml(data.message)}</span>`;
-    
     logContainer.appendChild(div);
     
-    // Limit to 200 logs
     while (logContainer.children.length > 200) {
         logContainer.removeChild(logContainer.firstChild);
     }
     
-    if (isScrolledToBottom) {
+    if (isScrolledToBottom || logContainer.children.length === 1) {
         logContainer.scrollTop = logContainer.scrollHeight;
     }
+}
+
+socket.on('log', appendLog);
+socket.on('log_history', (history) => {
+    logContainer.innerHTML = '';
+    history.forEach(appendLog);
+    logContainer.scrollTop = logContainer.scrollHeight;
 });
 
-socket.on('chat', (data) => {
+function appendChat(data) {
     const isScrolledToBottom = chatContainer.scrollHeight - chatContainer.clientHeight <= chatContainer.scrollTop + 10;
     
     const div = document.createElement('div');
     div.className = 'chat-line';
-    
     const timeString = new Date(data.timestamp).toLocaleTimeString();
     
     div.innerHTML = `<span class="timestamp">[${timeString}]</span> <span class="msg">${escapeHtml(data.message)}</span>`;
-    
     chatContainer.appendChild(div);
     
-    while (chatContainer.children.length > 100) {
+    while (chatContainer.children.length > 200) {
         chatContainer.removeChild(chatContainer.firstChild);
     }
     
-    if (isScrolledToBottom) {
+    if (isScrolledToBottom || chatContainer.children.length === 1) {
         chatContainer.scrollTop = chatContainer.scrollHeight;
+    }
+}
+
+socket.on('chat', appendChat);
+socket.on('chat_history', (history) => {
+    chatContainer.innerHTML = '';
+    history.forEach(appendChat);
+    chatContainer.scrollTop = chatContainer.scrollHeight;
+});
+
+// Control Handlers
+btnConnect.addEventListener('click', () => {
+    socket.emit('bot_control', 'connect');
+});
+
+btnDisconnect.addEventListener('click', () => {
+    socket.emit('bot_control', 'disconnect');
+});
+
+// Web Chat Handler
+function sendChat() {
+    const text = chatInput.value.trim();
+    if (text.length > 0) {
+        socket.emit('send_chat', text);
+        chatInput.value = '';
+    }
+}
+
+chatSubmit.addEventListener('click', sendChat);
+chatInput.addEventListener('keypress', (e) => {
+    if (e.key === 'Enter') {
+        sendChat();
     }
 });
 

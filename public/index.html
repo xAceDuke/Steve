@@ -28,9 +28,15 @@
                     </div>
                 </div>
                 
-                <div class="ping-display">
-                    <span class="ping-label">UPLINK PING</span>
-                    <span class="ping-value" id="ping-value">-- ms</span>
+                <div class="header-right">
+                    <div class="ping-display">
+                        <span class="ping-label">UPLINK PING</span>
+                        <span class="ping-value" id="ping-value">-- ms</span>
+                    </div>
+                    <div class="control-actions">
+                        <button id="btn-connect" class="cyber-btn btn-connect">START UPLINK</button>
+                        <button id="btn-disconnect" class="cyber-btn btn-disconnect">SEVER UPLINK</button>
+                    </div>
                 </div>
             </div>
         </header>
@@ -102,6 +108,11 @@
                     </div>
                     <div class="terminal-body chat-body" id="chat-container">
                         <!-- Chat lines go here -->
+                    </div>
+                    <div class="terminal-input-area">
+                        <span class="prompt-icon">></span>
+                        <input type="text" id="chat-input" placeholder="Transmit comm or /command..." autocomplete="off">
+                        <button id="chat-submit" class="cyber-btn btn-small">SEND</button>
                     </div>
                 </div>
                 

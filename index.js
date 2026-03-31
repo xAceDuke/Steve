@@ -22,6 +22,11 @@ let globalBot = null; // Used for dashboard
 let initialPlayers = new Set(); // Tracks players who were online before Steve
 let isLoggedIn = false; // Prevents actions before AuthMe login
 
+// State for front-end controls and persistence
+let manualDisconnect = false;
+const logHistory = [];
+const chatHistory = [];
+
 function sendWebhook(message) {
     if (!botConfig.webhookUrl) return;
     axios.post(botConfig.webhookUrl, { content: message }).catch(() => {});
@@ -41,7 +46,12 @@ app.use(express.static('public'));
 const originalConsoleLog = console.log;
 console.log = function (...args) {
     const msg = args.join(' ');
-    io.emit('log', { timestamp: new Date().toISOString(), message: msg });
+    const logEntry = { timestamp: new Date().toISOString(), message: msg };
+    
+    logHistory.push(logEntry);
+    if (logHistory.length > 200) logHistory.shift();
+    
+    io.emit('log', logEntry);
     originalConsoleLog.apply(console, args);
 };
 
@@ -104,9 +114,42 @@ setInterval(() => {
             }
         });
     } else {
-        io.emit('bot_status', { online: false, reconnecting: true });
+        io.emit('bot_status', { online: false, reconnecting: !manualDisconnect, manualDisconnect });
     }
 }, 1000);
+
+// Client Connection Handling
+io.on('connection', (socket) => {
+    // Sync pre-existing logs & chat
+    socket.emit('log_history', logHistory);
+    socket.emit('chat_history', chatHistory);
+
+    // Front-end Control Buttons (Connect / Disconnect)
+    socket.on('bot_control', (action) => {
+        if (action === 'connect') {
+            if (!globalBot || !globalBot.entity) {
+                console.log('[SYSTEM] Manual connect triggered.');
+                manualDisconnect = false;
+                reconnectAttempts = 0;
+                createBot();
+            }
+        } else if (action === 'disconnect') {
+            if (globalBot) {
+                console.log('[SYSTEM] Manual disconnect triggered.');
+                manualDisconnect = true;
+                globalBot.quit(); // properly ends connection and triggers 'end'
+            }
+        }
+    });
+
+    // Live Web Chat
+    socket.on('send_chat', (msg) => {
+        if (globalBot && isLoggedIn) {
+            console.log(`[WEB-CHAT SEND] ${msg}`);
+            globalBot.chat(msg);
+        }
+    });
+});
 
 // Self-ping to keep Render awake if KEEPALIVE_URL is provided
 const KEEPALIVE_URL = process.env.RENDER_EXTERNAL_URL || `http://localhost:${port}`;
@@ -161,13 +204,25 @@ async function createBot() {
                 bannedFood: ['rotten_flesh', 'pufferfish', 'spider_eye', 'poisonous_potato']
             };
         }
+
+        // Failsafe: If no AuthMe prompt happens after 5s, assume auto-login or vanilla server
+        setTimeout(() => {
+            if (!isLoggedIn) {
+                console.log(`[BOT] No login prompt detected after 5s. Assuming auto-login enabled. Starting routines...`);
+                isLoggedIn = true;
+                startPostLoginRoutines(bot);
+            }
+        }, 5000);
     });
 
     // Listen to ALL chat messages and emit to WebSocket
     bot.on('message', (jsonMsg, position) => {
         const message = jsonMsg.toString();
         if (message.trim().length > 0) {
-            io.emit('chat', { timestamp: new Date().toISOString(), message: message });
+            const chatEntry = { timestamp: new Date().toISOString(), message: message };
+            chatHistory.push(chatEntry);
+            if (chatHistory.length > 200) chatHistory.shift();
+            io.emit('chat', chatEntry);
         }
     });
 
@@ -248,16 +303,29 @@ async function createBot() {
         if (lowerMsg.includes('/register')) {
             console.log(`[BOT] AuthMe requested registration. Attempting to register...`);
             bot.chat(`/register ${botConfig.authmePassword} ${botConfig.authmePassword}`);
-            isLoggedIn = true;
-            startPostLoginRoutines(bot);
+            if (!isLoggedIn) {
+                isLoggedIn = true;
+                startPostLoginRoutines(bot);
+            }
         }
         
         // Handle Authme Login
         if (lowerMsg.includes('/login')) {
             console.log(`[BOT] AuthMe requested login. Attempting to login...`);
             bot.chat(`/login ${botConfig.authmePassword}`);
-            isLoggedIn = true;
-            startPostLoginRoutines(bot);
+            if (!isLoggedIn) {
+                isLoggedIn = true;
+                startPostLoginRoutines(bot);
+            }
+        }
+
+        // Handle Auto-login / Successful Session Restore
+        if (lowerMsg.includes('logged in') || lowerMsg.includes('successful') || lowerMsg.includes('auto-login enabled')) {
+            if (!isLoggedIn) {
+                console.log(`[BOT] Automatic login detected by server message. Starting routines...`);
+                isLoggedIn = true;
+                startPostLoginRoutines(bot);
+            }
         }
     });
 
@@ -358,10 +426,15 @@ async function createBot() {
                  try { wakeBot.quit(); } catch(e){}
              }, 5000); // Allow 5 seconds for wake-up handshake
 
-             if (delay < 90000) {
+              if (delay < 90000) {
                  console.log('[BOT] Server requires time to start up. Extending wait delay to 90 seconds.');
                  delay = 90000;
              }
+        }
+
+        if (manualDisconnect) {
+            console.log('[BOT] Manual disconnect active. Auto-reconnect suspended until manually started.');
+            return;
         }
 
         console.log(`[BOT] Auto-reconnecting in ${delay / 1000} seconds... (Attempt ${reconnectAttempts})`);
