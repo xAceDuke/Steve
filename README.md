@@ -15,7 +15,7 @@ Steve is an advanced, resilient 24/7 Minecraft bot designed to maintain a persis
 - **Verbose Render Logging:** Outputs all background actions (Anti-AFK tasks, restocking, custom wake-up pings) to the console to ensure activity is easily monitored inside Render.
 - **Feature-Rich Web Dashboard:** A beautiful, responsive glassmorphism web interface showing his Vitals (Health & Food), Location, Server TPS Lag status, and real-time Inventory payload.
 - **Discord Webhook integration:** Sends alerts on spawns, deaths, kicks, and errors.
-- **Render 24/7 Persistence:** Designed with Render's Free Tier in mind, featuring built-in keep-alive mechanics so Steve never sleeps.
+- **Render 24/7 Persistence:** Designed with Render's Free Tier in mind, featuring built-in keep-alive mechanics so Steve never sleeps..
 
 ---
 
