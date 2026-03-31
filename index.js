@@ -344,8 +344,8 @@ async function createBot() {
              reconnectAttempts++;
         }
 
-        if (reasonStr.includes('econnrefused')) {
-             console.log(`[BOT] Server connection refused. Initiating wake-up routine via ${botConfig.host}...`);
+        if (reasonStr.includes('econnrefused') || reasonStr.includes('etimedout')) {
+             console.log(`[BOT] Server connection refused or timed out. Initiating wake-up routine via ${botConfig.host}...`);
              const wakeBot = mineflayer.createBot({
                  host: botConfig.host, // Connects normally (port 25565) to wake up the server
                  username: botConfig.username,

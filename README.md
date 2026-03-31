@@ -7,10 +7,12 @@ Steve is an advanced, resilient 24/7 Minecraft bot designed to maintain a persis
 ## ⚡ Features
 
 - **AuthMe Support:** Automatically detects login requirements and seamlessly registers/logs in securely.
+- **Intelligent Connection & Wake-up:** Dynamically resolves server IPs via DNS lookup. If the connected server is asleep, Steve intelligently pings the proxy to wake it up and waits for a smooth connection.
 - **God Mode & Survival Monitor:** Once logged in, Steve enables god mode, heals, feeds, and builds a bedrock isolation platform at the edge of the world to stay safe from players. He constantly monitors his health and auto-eats.
 - **Advanced Anti-AFK:** Performs human-like movements, looks around, swings his arm, and uses `/ping` to stay active on strict servers. Stops automatically if severe server lag is detected.
 - **Intelligent Chat:** Greets new players and says goodbye when they leave, with natural human-like delays.
 - **Auto Reconnect & Exponential Backoff:** If kicked or the server restarts, Steve aggressively but safely attempts to reconnect, backing off exponentially up to 5 minutes to avoid rate limits.
+- **Verbose Render Logging:** Outputs all background actions (Anti-AFK tasks, restocking, custom wake-up pings) to the console to ensure activity is easily monitored inside Render.
 - **Feature-Rich Web Dashboard:** A beautiful, responsive glassmorphism web interface showing his Vitals (Health & Food), Location, Server TPS Lag status, and real-time Inventory payload.
 - **Discord Webhook integration:** Sends alerts on spawns, deaths, kicks, and errors.
 - **Render 24/7 Persistence:** Designed with Render's Free Tier in mind, featuring built-in keep-alive mechanics so Steve never sleeps.
@@ -31,12 +33,11 @@ Steve is an advanced, resilient 24/7 Minecraft bot designed to maintain a persis
    ```bash
    npm install
    ```
-4. **Configure your Bot:**
    Open `index.js` and edit the `botConfig` variables at the top:
    ```javascript
    const botConfig = {
-       host: '51.79.228.175',           // IP of the server
-       port: 42353,                     // Port of the server
+       host: 'alora.joinmc.world',      // Main host to resolve and wake up
+       port: 42353,                     // Fixed backend node port
        username: 'Steve',               // The bot's username
        version: '1.19',                 // Target MC version
        authmePassword: 'YourSecurePassword!', // For AuthMe servers
