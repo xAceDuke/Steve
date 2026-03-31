@@ -208,6 +208,7 @@ async function createBot() {
         // Delay greeting to seem human (2 - 5 seconds)
         setTimeout(() => {
             const greeting = welcomes[Math.floor(Math.random() * welcomes.length)];
+            console.log(`[BOT] Welcoming ${player.username}: "${greeting}"`);
             bot.chat(greeting);
         }, Math.random() * 3000 + 2000);
     });
@@ -231,6 +232,7 @@ async function createBot() {
         
         setTimeout(() => {
             const greeting = goodbyes[Math.floor(Math.random() * goodbyes.length)];
+            console.log(`[BOT] Saying goodbye to ${player.username}: "${greeting}"`);
             bot.chat(greeting);
         }, Math.random() * 3000 + 2000);
     });
@@ -355,6 +357,11 @@ async function createBot() {
              setTimeout(() => {
                  try { wakeBot.quit(); } catch(e){}
              }, 5000); // Allow 5 seconds for wake-up handshake
+
+             if (delay < 90000) {
+                 console.log('[BOT] Server requires time to start up. Extending wait delay to 90 seconds.');
+                 delay = 90000;
+             }
         }
 
         console.log(`[BOT] Auto-reconnecting in ${delay / 1000} seconds... (Attempt ${reconnectAttempts})`);
@@ -386,6 +393,7 @@ function startAntiAFK(bot) {
                         const x = bot.entity.position.x + (Math.random() * 10 - 5);
                         const z = bot.entity.position.z + (Math.random() * 10 - 5);
                         const y = bot.entity.position.y;
+                        console.log(`[BOT] Anti-AFK: Walking near (${Math.round(x)}, ${Math.round(y)}, ${Math.round(z)}).`);
                         bot.pathfinder.setGoal(new goals.GoalNear(x, y, z, 1));
                     }
                     break;
@@ -393,16 +401,20 @@ function startAntiAFK(bot) {
                     if (bot.entity) {
                         const yaw = bot.entity.yaw + (Math.random() - 0.5) * Math.PI;
                         const pitch = (Math.random() - 0.5) * Math.PI / 2;
+                        console.log(`[BOT] Anti-AFK: Looking around.`);
                         bot.look(yaw, pitch, false);
                     }
                     break;
                 case 'swing':
+                    console.log(`[BOT] Anti-AFK: Swinging arm.`);
                     bot.swingArm('right');
                     break;
                 case 'chat_ping':
+                    console.log(`[BOT] Anti-AFK: Sending /ping command.`);
                     bot.chat('/ping'); // Invisible activity registration
                     break;
                 case 'sneak':
+                    console.log(`[BOT] Anti-AFK: Sneaking.`);
                     bot.setControlState('sneak', true);
                     setTimeout(() => bot.setControlState('sneak', false), 2000);
                     break;
@@ -432,8 +444,10 @@ function startSurvivalMonitor(bot) {
             if (!offhand || offhand.name !== 'totem_of_undying') {
                 const totem = bot.inventory.items().find(item => item.name === 'totem_of_undying');
                 if (totem) {
+                    console.log(`[BOT] Survival: Equipping Totem of Undying to off-hand.`);
                     bot.equip(totem, 'off-hand');
                 } else {
+                    console.log(`[BOT] Survival: Out of Totems! Generating one via OP command.`);
                     bot.chat(`/give ${bot.username} totem_of_undying 1`); // Use OP to fetch one
                 }
             }
@@ -441,6 +455,7 @@ function startSurvivalMonitor(bot) {
             // OP Food Restock
             const foods = bot.inventory.items().filter(item => ['golden_apple', 'baked_potato', 'cooked_beef'].includes(item.name));
             if (foods.length === 0) {
+                console.log(`[BOT] Survival: Out of good food! Restocking via OP command.`);
                 bot.chat(`/give ${bot.username} golden_apple 64`);
             }
             
