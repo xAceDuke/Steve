@@ -4,10 +4,11 @@ const axios = require('axios');
 const express = require('express');
 const http = require('http');
 const { Server } = require('socket.io');
+const dns = require('dns').promises;
 
 const botConfig = {
-    host: '51.79.228.175',
-    port: 42353,
+    host: 'alora.joinmc.world', // Main host to resolve and wake up
+    port: 42353, // Fixed backend node port
     username: 'Steve', // The username you provided
     version: '1.19', // The version you requested
     authmePassword: 'StevePassword123!', // You can change the password if you'd like
@@ -114,11 +115,22 @@ setInterval(() => {
 }, 300000); // 5 minutes
 // ---------------------------
 
-function createBot() {
-    console.log(`[BOT] Connecting to ${botConfig.host}:${botConfig.port}...`);
+async function createBot() {
+    let targetIp = botConfig.host;
+    try {
+        console.log(`[BOT] Resolving IP for ${botConfig.host}...`);
+        const { address } = await dns.lookup(botConfig.host);
+        targetIp = address;
+        console.log(`[BOT] Resolved ${botConfig.host} to ${targetIp}`);
+    } catch (e) {
+        console.log(`[BOT] DNS lookup failed for ${botConfig.host}: ${e.message}. Using fallback...`);
+        targetIp = '51.79.228.175'; // fallback just in case
+    }
+
+    console.log(`[BOT] Connecting to ${targetIp}:${botConfig.port}...`);
 
     const bot = mineflayer.createBot({
-        host: botConfig.host,
+        host: targetIp,
         port: botConfig.port,
         username: botConfig.username,
         version: botConfig.version,
@@ -295,6 +307,7 @@ function createBot() {
 
     // Handle Disconnection Events
     let lastKickReason = '';
+    let lastError = null;
     bot.on('kicked', (reason) => {
         lastKickReason = String(reason).toLowerCase();
         console.log(`[BOT] Kicked: ${reason}`);
@@ -302,6 +315,7 @@ function createBot() {
     });
 
     bot.on('error', (err) => {
+        lastError = err;
         console.log(`[BOT] Connection Error: ${err.message}`);
         sendWebhook(`❌ **${bot.username}** encountered a connection error: \`${err.message}\``);
     });
@@ -313,6 +327,7 @@ function createBot() {
         stopSurvivalMonitor();
         
         let reasonStr = String(reason).toLowerCase() + ' ' + lastKickReason;
+        if (lastError) reasonStr += ' ' + lastError.message.toLowerCase();
         let delay = 10000; // Base 10s
         isLoggedIn = false; // Reset login state
 
@@ -325,6 +340,21 @@ function createBot() {
              // Exponential Backoff calculation
              delay = Math.min(10000 * Math.pow(2, reconnectAttempts), MAX_RECONNECT_DELAY);
              reconnectAttempts++;
+        }
+
+        if (reasonStr.includes('econnrefused')) {
+             console.log(`[BOT] Server connection refused. Initiating wake-up routine via ${botConfig.host}...`);
+             const wakeBot = mineflayer.createBot({
+                 host: botConfig.host, // Connects normally (port 25565) to wake up the server
+                 username: botConfig.username,
+                 version: botConfig.version
+             });
+             
+             wakeBot.on('error', () => {});
+             wakeBot.on('kicked', () => {});
+             setTimeout(() => {
+                 try { wakeBot.quit(); } catch(e){}
+             }, 5000); // Allow 5 seconds for wake-up handshake
         }
 
         console.log(`[BOT] Auto-reconnecting in ${delay / 1000} seconds... (Attempt ${reconnectAttempts})`);
